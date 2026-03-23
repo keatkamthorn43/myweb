@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ศูนย์รวมข้อสอบ · สายวิทยาการ สสท.ทร.</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800&family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ════════════════════════════════════════════
+   ROOT TOKENS
+════════════════════════════════════════════ */
+:root {
+  --ink:   #070d1a;
+  --ink2:  #0c1525;
+  --slate: #101e33;
+  --steel: #19304d;
+  --gold:  #c9963a;
+  --gold2: #e8b84b;
+  --gold3: #f6d47e;
+  --cream: #f2ead8;
+  --mist:  rgba(255,255,255,0.045);
+  --line:  rgba(201,150,58,0.18);
+  --r:     15px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Sarabun', sans-serif;
+  background: var(--ink);
+  color: var(--cream);
+  min-height: 100vh;
+  overflow-x: hidden;
+  cursor: none;
+}
+@media (pointer: coarse) { body { cursor: auto; } }
+
+/* ════════════════════════════════════════════
+   CUSTOM CURSOR
+════════════════════════════════════════════ */
+#cur-dot, #cur-ring {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%,-50%);
+}
+#cur-dot  { width: 6px; height: 6px; background: var(--gold2); top: 0; left: 0; }
+#cur-ring {
+  width: 34px; height: 34px;
+  border: 1.5px solid rgba(201,150,58,0.55);
+  top: 0; left: 0;
+  transition: width .22s, height .22s, border-color .22s;
+}
+.hovering #cur-ring { width: 54px; height: 54px; border-color: var(--gold2); }
+@media (pointer: coarse) { #cur-dot, #cur-ring { display: none; } }
+
+/* ════════════════════════════════════════════
+   BACKGROUND LAYERS
+════════════════════════════════════════════ */
+#bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+.vignette {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(5,10,22,.75) 100%);
+}
+.scanline {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .3;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0, transparent 3px,
+    rgba(0,0,0,.06) 3px, rgba(0,0,0,.06) 4px
+  );
+}
+
+.page { position: relative; z-index: 2; }
+
+/* ════════════════════════════════════════════
+   HEADER
+════════════════════════════════════════════ */
+header {
+  height: 58px;
+  padding: 0 clamp(16px,4vw,80px);
+  background: rgba(7,13,26,.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 300;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: box-shadow .35s;
+}
+header.scrolled { box-shadow: 0 4px 36px rgba(0,0,0,.55); }
+
+.brand { display: flex; align-items: center; gap: 11px; }
+.brand-badge {
+  width: 34px; height: 34px;
+  border: 1.5px solid var(--gold);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; flex-shrink: 0;
+  animation: badgeGlow 3s ease-in-out infinite;
+}
+@keyframes badgeGlow {
+  0%,100% { box-shadow: 0 0 14px rgba(201,150,58,.28); }
+  50%      { box-shadow: 0 0 28px rgba(201,150,58,.55), 0 0 8px rgba(201,150,58,.25) inset; }
+}
+.brand-name {
+  font-family: 'Chakra Petch', monospace;
+  font-size: clamp(11px,2.2vw,13px); font-weight: 600;
+  letter-spacing: .07em;
+  color: rgba(242,234,216,.65);
+  white-space: nowrap;
+}
+.brand-name strong { color: var(--gold2); }
+
+.hdr-right { display: flex; align-items: center; gap: 14px; }
+.live-chip {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.22);
+  border-radius: 20px; padding: 4px 11px;
+  font-family: 'Chakra Petch', monospace;
+  font-size: 9px; letter-spacing: 2px; color: #4ade80; text-transform: uppercase;
+}
+.live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #4ade80;
+  animation: livePulse 1.4s infinite;
+}
+@keyframes livePulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:.25; transform:scale(.6); }
+}
+.hdr-label {
+  font-family: 'Chakra Petch', monospace;
+  font-size: clamp(9px,1.8vw,11px);
+  letter-spacing: 3px; color: rgba(242,234,216,.25);
+  text-transform: uppercase; white-space: nowrap;
+}
+@media (max-width:640px) { .hdr-label { display:none; } .live-chip { display:none; } }
+
+/* ════════════════════════════════════════════
+   HERO
+════════════════════════════════════════════ */
+.hero {
+  max-width: 1120px; margin: 0 auto;
+  padding: clamp(48px,9vh,130px) clamp(16px,4vw,80px) clamp(32px,5vh,72px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(28px,5vw,68px);
+  align-items: center;
+}
+@media (max-width:700px) {
+  .hero { grid-template-columns:1fr; gap:36px; }
+  .hero-panel { order:-1; }
+}
+
+/* eyebrow */
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 9px;
+  background: rgba(201,150,58,.08); border: 1px solid rgba(201,150,58,.22);
+  border-radius: 24px; padding: 6px 16px;
+  font-family: 'Chakra Petch', monospace;
+  font-size: 9px; letter-spacing: 4px; color: var(--gold2);
+  text-transform: uppercase; margin-bottom: 22px;
+  opacity: 0; animation: fadeUp .7s .05s forwards;
+}
+.eyebrow-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--gold2); flex-shrink: 0;
+  animation: dotPulse 2s infinite;
+}
+@keyframes dotPulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:.3; transform:scale(.6); }
+}
+
+h1 {
+  font-size: clamp(30px,5.5vw,62px);
+  font-weight: 800; line-height: 1.11;
+  letter-spacing: -.025em;
+  margin-bottom: 16px;
+  opacity: 0; animation: fadeUp .7s .12s forwards;
+}
+h1 em {
+  font-style: normal;
+  background: linear-gradient(130deg, var(--gold) 0%, var(--gold3) 50%, var(--gold2) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 4s linear infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.hero-sub {
+  font-size: clamp(13px,1.9vw,16px);
+  color: rgba(242,234,216,.45); line-height: 1.75;
+  max-width: 500px; margin-bottom: 30px;
+  opacity: 0; animation: fadeUp .7s .2s forwards;
+}
+
+.hero-cta {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: linear-gradient(135deg, var(--gold), var(--gold2));
+  color: var(--ink); border: none; border-radius: 12px;
+  padding: 14px 30px;
+  font-family: 'Sarabun', sans-serif;
+  font-size: 15px; font-weight: 700;
+  text-decoration: none; cursor: none;
+  box-shadow: 0 8px 28px rgba(201,150,58,.3);
+  transition: transform .22s, box-shadow .22s;
+  opacity: 0; animation: fadeUp .7s .28s forwards;
+}
+.hero-cta:hover { transform: translateY(-3px); box-shadow: 0 14px 40px rgba(201,150,58,.48); }
+.cta-arrow { transition: transform .2s; }
+.hero-cta:hover .cta-arrow { transform: translateX(5px); }
+
+/* ── Right panel (3D tilt card) ── */
+.hero-panel {
+  perspective: 900px;
+  opacity: 0; animation: fadeUp .7s .18s forwards;
+}
+.tilt-card {
+  background: linear-gradient(145deg, var(--slate) 0%, var(--ink2) 100%);
+  border: 1px solid rgba(201,150,58,.2);
+  border-radius: 20px; padding: 32px;
+  position: relative; overflow: hidden;
+  transform-style: preserve-3d;
+  transition: transform .12s ease-out;
+  box-shadow: 0 28px 72px rgba(0,0,0,.55);
+  cursor: none;
+}
+.tilt-card::before {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 65% 55% at var(--gx,50%) var(--gy,30%),
+    rgba(201,150,58,.13) 0%, transparent 68%);
+}
+.tc-eyebrow {
+  font-family: 'Chakra Petch', monospace;
+  font-size: 9px; letter-spacing: 3px; color: var(--gold); opacity: .7;
+  text-transform: uppercase; margin-bottom: 18px;
+}
+.tc-stat { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
+.tc-num {
+  font-family: 'Chakra Petch', monospace;
+  font-size: clamp(48px,7vw,76px); font-weight: 700; line-height: 1;
+  color: var(--gold3);
+}
+.tc-unit { font-size: 16px; color: rgba(242,234,216,.35); }
+.tc-desc { font-size: 12px; color: rgba(242,234,216,.32); margin-bottom: 26px; }
+
+.tc-bars { display: flex; flex-direction: column; gap: 9px; }
+.tc-bar-row { display: flex; align-items: center; gap: 9px; }
+.tc-bar-lbl { font-size: 11px; color: rgba(242,234,216,.45); width: 88px; flex-shrink: 0; white-space: nowrap; }
+.tc-bar-track {
+  flex: 1; height: 4px; background: rgba(255,255,255,.06);
+  border-radius: 3px; overflow: hidden;
+}
+.tc-bar-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--gold), var(--gold3));
+  width: 0; transition: width 1.3s cubic-bezier(.16,1,.3,1);
+}
+.tc-bar-pct { font-size: 10px; color: var(--gold2); width: 30px; text-align: right; }
+
+/* floating badge */
+.tc-badge {
+  position: absolute; top: -11px; right: 20px;
+  background: linear-gradient(135deg, var(--gold), var(--gold2));
+  color: var(--ink); font-weight: 700;
+  font-family: 'Chakra Petch', monospace;
+  font-size: 10px; letter-spacing: 1.5px;
+  padding: 6px 14px; border-radius: 8px;
+  box-shadow: 0 4px 18px rgba(201,150,58,.42);
+  animation: floatBadge 3s ease-in-out infinite;
+}
+@keyframes floatBadge {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+/* ════════════════════════════════════════════
+   STATS BAR
+════════════════════════════════════════════ */
+.stats-wrap {
+  max-width: 1120px; margin: 0 auto 48px;
+  padding: 0 clamp(16px,4vw,80px);
+}
+.stats-inner {
+  background: var(--mist); border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: clamp(14px,2.5vw,20px) clamp(16px,3vw,32px);
+  display: grid; grid-template-columns: repeat(4,1fr);
+  position: relative; overflow: hidden;
+}
+.stats-inner::after {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg,rgba(201,150,58,.05) 0%,transparent 40%,transparent 60%,rgba(201,150,58,.05) 100%);
+}
+.stat-cell { text-align: center; padding: 8px 12px; position: relative; }
+.stat-cell + .stat-cell::before {
+  content: ''; position: absolute; left: 0; top: 18%; bottom: 18%;
+  width: 1px; background: var(--line);
+}
+.stat-v {
+  font-family: 'Chakra Petch', monospace;
+  font-size: clamp(22px,4vw,30px); font-weight: 700; color: var(--gold3); line-height: 1;
+}
+.stat-l { font-size: clamp(9px,1.6vw,11px); color: rgba(242,234,216,.3); letter-spacing: 1px; margin-top: 4px; }
+@media (max-width:540px) {
+  .stats-inner { grid-template-columns: repeat(2,1fr); }
+  .stat-cell:nth-child(3)::before { display:none; }
+}
+
+/* ════════════════════════════════════════════
+   SECTION DIVIDER
+════════════════════════════════════════════ */
+.section-divider {
+  max-width: 1120px; margin: 0 auto 38px;
+  padding: 0 clamp(16px,4vw,80px);
+  display: flex; align-items: center; gap: 16px;
+}
+.sdiv-line { flex: 1; height: 1px; background: var(--line); }
+.sdiv-lbl {
+  font-family: 'Chakra Petch', monospace;
+  font-size: 9px; letter-spacing: 4px; color: var(--gold);
+  text-transform: uppercase; white-space: nowrap;
+}
+
+/* ════════════════════════════════════════════
+   SUBJECT GRID
+════════════════════════════════════════════ */
+.subjects-grid {
+  max-width: 1120px; margin: 0 auto;
+  padding: 0 clamp(16px,4vw,80px) 96px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: clamp(12px,1.6vw,18px);
+}
+@media (max-width:900px) { .subjects-grid { grid-template-columns: repeat(4,1fr); } }
+@media (max-width:580px) { .subjects-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width:380px) { .subjects-grid { grid-template-columns: 1fr; } }
+
+/* ════════════════════════════════════════════
+   CARD
+════════════════════════════════════════════ */
+.card {
+  position: relative; overflow: hidden;
+  background: linear-gradient(148deg, var(--slate) 0%, var(--ink2) 100%);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: var(--r);
+  padding: clamp(18px,2.5vw,26px);
+  text-decoration: none; color: inherit;
+  display: flex; flex-direction: column;
+  cursor: none;
+  /* reveal starts invisible */
+  opacity: 0; transform: translateY(28px);
+  transition:
+    opacity .55s cubic-bezier(.16,1,.3,1),
+    transform .55s cubic-bezier(.16,1,.3,1),
+    border-color .28s,
+    box-shadow .28s;
+}
+.card.visible { opacity: 1; transform: translateY(0); }
+.card.soon { pointer-events: none; }
+
+/* span helpers */
+.s2 { grid-column: span 2; }
+.s3 { grid-column: span 3; }
+@media (max-width:900px) {
+  .s3 { grid-column: span 4; }
+  .s2 { grid-column: span 2; }
+}
+@media (max-width:580px) {
+  .s2, .s3 { grid-column: span 2; }
+}
+@media (max-width:380px) {
+  .s2, .s3 { grid-column: span 1; }
+}
+
+/* radial mouse glow */
+.card::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 80% 65% at var(--mx,50%) var(--my,0%),
+    rgba(201,150,58,.13) 0%, transparent 70%);
+  opacity: 0; transition: opacity .3s;
+}
+.card:not(.soon):hover::before { opacity: 1; }
+.card:not(.soon):hover {
+  border-color: rgba(201,150,58,.38);
+  box-shadow: 0 22px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(201,150,58,.12);
+}
+
+/* gold top line */
+.card-line {
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity: 0; transition: opacity .3s;
+}
+.card:not(.soon):hover .card-line { opacity: 1; }
+.s3 .card-line { opacity: .5; }
+
+/* ripple */
+.ripple-el {
+  position: absolute; border-radius: 50%;
+  background: rgba(201,150,58,.22);
+  transform: scale(0);
+  animation: rippleAnim .6s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes rippleAnim { to { transform: scale(4.5); opacity: 0; } }
+
+/* card top */
+.card-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: clamp(12px,2vw,18px); gap: 8px;
+}
+.card-icon {
+  width: clamp(42px,5.5vw,52px); height: clamp(42px,5.5vw,52px);
+  border-radius: 12px;
+  background: rgba(201,150,58,.1); border: 1px solid rgba(201,150,58,.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: clamp(20px,2.8vw,24px); flex-shrink: 0;
+  transition: background .25s, transform .25s;
+}
+.card:not(.soon):hover .card-icon {
+  background: rgba(201,150,58,.2);
+  transform: scale(1.1) rotate(-4deg);
+}
+.badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+.badge {
+  font-family: 'Chakra Petch', monospace;
+  font-size: 9px; font-weight: 600; letter-spacing: 1.5px;
+  padding: 3px 8px; border-radius: 5px; text-transform: uppercase;
+}
+.b-green { background: rgba(52,211,153,.14); color: #6ee7b7; border: 1px solid rgba(52,211,153,.28); }
+.b-amber { background: rgba(251,191,36,.11); color: #fbbf24; border: 1px solid rgba(251,191,36,.24); }
+.b-red   { background: rgba(239,68,68,.11);  color: #fca5a5; border: 1px solid rgba(239,68,68,.24); }
+
+/* mini progress bar */
+.mini-bar {
+  height: 3px; background: rgba(255,255,255,.05);
+  border-radius: 2px; margin-bottom: 12px; overflow: hidden;
+}
+.mini-bar-fill {
+  height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, var(--gold), var(--gold3));
+  width: 0; transition: width 1.2s .3s cubic-bezier(.16,1,.3,1);
+}
+
+.card-cat {
+  font-family: 'Chakra Petch', monospace;
+  font-size: 9px; letter-spacing: 2.5px; color: var(--gold); opacity: .8;
+  text-transform: uppercase; margin-bottom: 7px;
+}
+.card-title {
+  font-size: clamp(13px,2vw,16px); font-weight: 700; line-height: 1.42;
+  color: var(--cream); margin-bottom: 8px;
+}
+.s3 .card-title { font-size: clamp(14px,2.2vw,18px); }
+.card-desc {
+  font-size: clamp(11px,1.5vw,13px); color: rgba(242,234,216,.4);
+  line-height: 1.65; flex: 1; margin-bottom: clamp(12px,2vw,18px);
+}
+
+.card-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: clamp(10px,1.8vw,14px);
+  border-top: 1px solid rgba(255,255,255,.055);
+  gap: 8px; margin-top: auto;
+}
+.card-meta { display: flex; gap: clamp(8px,1.5vw,16px); }
+.meta-i { display: flex; flex-direction: column; gap: 2px; }
+.meta-v {
+  font-family: 'Chakra Petch', monospace;
+  font-size: clamp(14px,2.5vw,18px); font-weight: 700; color: var(--cream); line-height: 1;
+}
+.meta-k { font-size: 9px; color: rgba(242,234,216,.28); letter-spacing: 1px; }
+
+.card-arrow {
+  width: clamp(28px,4vw,34px); height: clamp(28px,4vw,34px);
+  border-radius: 9px; flex-shrink: 0;
+  background: rgba(201,150,58,.1); border: 1px solid rgba(201,150,58,.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--gold2);
+  transition: all .22s;
+}
+.card:not(.soon):hover .card-arrow {
+  background: var(--gold); color: var(--ink);
+  transform: translateX(5px) scale(1.06);
+}
+
+/* soon overlay */
+.card.soon { opacity: .48; }
+.soon-label {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  background: rgba(7,13,26,.87); border: 1px solid var(--line);
+  border-radius: 24px; padding: 7px 20px;
+  font-family: 'Chakra Petch', monospace;
+  font-size: 10px; letter-spacing: 2.5px; color: var(--gold);
+  text-transform: uppercase; white-space: nowrap;
+  box-shadow: 0 4px 24px rgba(0,0,0,.4);
+}
+
+/* ════════════════════════════════════════════
+   TOAST
+════════════════════════════════════════════ */
+.toast {
+  position: fixed; bottom: 26px; left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--slate); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 20px;
+  font-size: 13px; color: var(--cream);
+  display: flex; align-items: center; gap: 10px;
+  z-index: 500; box-shadow: 0 8px 36px rgba(0,0,0,.45);
+  transition: transform .45s cubic-bezier(.16,1,.3,1), opacity .45s;
+  opacity: 0; pointer-events: none; white-space: nowrap;
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+/* ════════════════════════════════════════════
+   FOOTER
+════════════════════════════════════════════ */
+footer {
+  border-top: 1px solid var(--line);
+  padding: 22px clamp(16px,4vw,80px);
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: clamp(10px,1.8vw,12px); color: rgba(242,234,216,.2);
+  flex-wrap: wrap; gap: 8px;
+}
+@media (max-width:540px) { footer { flex-direction: column; align-items: flex-start; } }
+
+/* ════════════════════════════════════════════
+   KEYFRAMES
+════════════════════════════════════════════ */
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(22px); }
+  to   { opacity:1; transform:none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Custom cursor -->
+<div id="cur-dot"></div>
+<div id="cur-ring"></div>
+
+<!-- BG -->
+<canvas id="bg-canvas"></canvas>
+<div class="vignette"></div>
+<div class="scanline"></div>
+
+<!-- Toast -->
+<div class="toast" id="toast">💡 เลือกวิชาด้านล่างเพื่อเริ่มทำข้อสอบได้เลย</div>
+
+<div class="page">
+
+<!-- ══════════ HEADER ══════════ -->
+<header id="hdr">
+  <div class="brand">
+    <div class="brand-badge">⚓</div>
+    <div class="brand-name"><strong>RTN</strong> · ระบบทดสอบออนไลน์</div>
+  </div>
+  <div class="hdr-right">
+    <div class="live-chip"><div class="live-dot"></div>LIVE</div>
+    <div class="hdr-label">Royal Thai Navy</div>
+  </div>
+</header>
+
+<!-- ══════════ HERO ══════════ -->
+<section class="hero">
+  <div class="hero-copy">
+    <div class="eyebrow"><div class="eyebrow-dot"></div>ศูนย์รวมข้อสอบ สสท.ทร.</div>
+    <h1>ระบบข้อสอบ<br><em>สายวิทยาการ</em></h1>
+      <h4>พัฒนาโดย พันจ่าโทเกียรติกำธร  สูงเนิน</h4>
+    <p class="hero-sub">รวมแบบทดสอบมาตรฐานตามรายวิชา สำหรับข้าราชการที่เตรียมความพร้อมสอบ สายวิทยาการ สสท.ทร. ครบ ๗ วิชา</p>
+    <a class="hero-cta" href="#subjects">เริ่มทำข้อสอบ <span class="cta-arrow">→</span></a>
+  </div>
+
+  <div class="hero-panel">
+    <div class="tilt-card" id="tiltCard">
+      <div class="tc-badge">สสท.ทร. 2568</div>
+      <div class="tc-eyebrow">ภาพรวมระบบ</div>
+      <div class="tc-stat">
+        <div class="tc-num" id="tcNum">0</div>
+        <div class="tc-unit">วิชา</div>
+      </div>
+      <div class="tc-desc">พร้อมสอบออนไลน์</div>
+      <div class="tc-bars">
+        <div class="tc-bar-row"><div class="tc-bar-lbl">Info Security</div><div class="tc-bar-track"><div class="tc-bar-fill" data-w="100"></div></div><div class="tc-bar-pct">100%</div></div>
+        <div class="tc-bar-row"><div class="tc-bar-lbl">Cybersecurity</div><div class="tc-bar-track"><div class="tc-bar-fill" data-w="100"></div></div><div class="tc-bar-pct">100%</div></div>
+        <div class="tc-bar-row"><div class="tc-bar-lbl">Operating Sys</div><div class="tc-bar-track"><div class="tc-bar-fill" data-w="100"></div></div><div class="tc-bar-pct">100%</div></div>
+        <div class="tc-bar-row"><div class="tc-bar-lbl">Programming</div><div class="tc-bar-track"><div class="tc-bar-fill" data-w="100"></div></div><div class="tc-bar-pct">100%</div></div>
+        <div class="tc-bar-row"><div class="tc-bar-lbl">IT Law</div><div class="tc-bar-track"><div class="tc-bar-fill" data-w="100"></div></div><div class="tc-bar-pct">100%</div></div>
+        <div class="tc-bar-row"><div class="tc-bar-lbl">Networking</div><div class="tc-bar-track"><div class="tc-bar-fill" data-w="35"></div></div><div class="tc-bar-pct">35%</div></div>
+        <div class="tc-bar-row"><div class="tc-bar-lbl">Database</div><div class="tc-bar-track"><div class="tc-bar-fill" data-w="20"></div></div><div class="tc-bar-pct">20%</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ STATS ══════════ -->
+<div class="stats-wrap" id="statsWrap">
+  <div class="stats-inner">
+    <div class="stat-cell"><div class="stat-v" data-target="5">0</div><div class="stat-l">วิชาพร้อมสอบ</div></div>
+    <div class="stat-cell"><div class="stat-v" data-target="500">0</div><div class="stat-l">ข้อสอบพร้อมใช้</div></div>
+    <div class="stat-cell"><div class="stat-v" data-target="2">0</div><div class="stat-l">วิชาเปิดเร็วๆ นี้</div></div>
+    <div class="stat-cell"><div class="stat-v" data-target="180">0</div><div class="stat-l">นาที / การสอบ</div></div>
+  </div>
+</div>
+
+<!-- ══════════ DIVIDER ══════════ -->
+<div class="section-divider" id="subjects">
+  <div class="sdiv-line"></div>
+  <div class="sdiv-lbl">เลือกรายวิชา</div>
+  <div class="sdiv-line"></div>
+</div>
+
+<!-- ══════════ CARDS ══════════ -->
+<section class="subjects-grid">
+
+  <!-- 1 IT Security — s3 -->
+  <a class="card s3" href="policy_law_exam.html" data-delay="0">
+    <div class="card-line"></div>
+    <div class="card-top">
+      <div class="card-icon">🔐</div>
+      <div class="badges">
+        <span class="badge b-green">พร้อมสอบ</span>
+        <span class="badge b-red">ล่าสุด</span>
+      </div>
+    </div>
+    <div class="mini-bar"><div class="mini-bar-fill" data-w="100"></div></div>
+    <div class="card-cat">Information Security</div>
+    <div class="card-title">นโยบายและแนวปฏิบัติในการรักษาความมั่นคงปลอดภัยด้านสารสนเทศ กองทัพเรือ พ.ศ. ๒๕๖๘</div>
+    <div class="card-desc">ครอบคลุมนโยบาย Access Control, User Management, Network Security, Cybersecurity Framework, การสำรองข้อมูล และความรับผิดชอบตามกฎหมาย</div>
+    <div class="card-foot">
+      <div class="card-meta">
+        <div class="meta-i"><div class="meta-v">100</div><div class="meta-k">ข้อ</div></div>
+        <div class="meta-i"><div class="meta-v">180</div><div class="meta-k">นาที</div></div>
+        <div class="meta-i"><div class="meta-v">60%</div><div class="meta-k">ผ่าน</div></div>
+      </div>
+      <div class="card-arrow">→</div>
+    </div>
+  </a>
+
+  <!-- 2 Cybersecurity — s3 -->
+  <a class="card s3" href="exam_law_master.html" data-delay="1">
+    <div class="card-line"></div>
+    <div class="card-top">
+      <div class="card-icon">🛡️</div>
+      <div class="badges"><span class="badge b-green">พร้อมสอบ</span></div>
+    </div>
+    <div class="mini-bar"><div class="mini-bar-fill" data-w="100"></div></div>
+    <div class="card-cat">Cybersecurity</div>
+    <div class="card-title">ความมั่นคงปลอดภัยไซเบอร์</div>
+    <div class="card-desc">ภัยคุกคามไซเบอร์ การโจมตีประเภทต่างๆ มาตรการป้องกัน กรอบมาตรฐาน NCSF และการรับมือเหตุการณ์</div>
+    <div class="card-foot">
+      <div class="card-meta">
+        <div class="meta-i"><div class="meta-v">100</div><div class="meta-k">ข้อ</div></div>
+        <div class="meta-i"><div class="meta-v">180</div><div class="meta-k">นาที</div></div>
+        <div class="meta-i"><div class="meta-v">60%</div><div class="meta-k">ผ่าน</div></div>
+      </div>
+      <div class="card-arrow">→</div>
+    </div>
+  </a>
+
+  <!-- 3 OS — s2 -->
+  <a class="card s2" href="os_exam.html" data-delay="2">
+    <div class="card-line"></div>
+    <div class="card-top">
+      <div class="card-icon">💻</div>
+      <div class="badges"><span class="badge b-green">พร้อมสอบ</span></div>
+    </div>
+    <div class="mini-bar"><div class="mini-bar-fill" data-w="100"></div></div>
+    <div class="card-cat">Operating System</div>
+    <div class="card-title">ระบบปฏิบัติการ</div>
+    <div class="card-desc">Process, CPU Scheduling, Memory Management, Virtual Memory, File System และ I/O</div>
+    <div class="card-foot">
+      <div class="card-meta">
+        <div class="meta-i"><div class="meta-v">100</div><div class="meta-k">ข้อ</div></div>
+        <div class="meta-i"><div class="meta-v">180</div><div class="meta-k">นาที</div></div>
+        <div class="meta-i"><div class="meta-v">60%</div><div class="meta-k">ผ่าน</div></div>
+      </div>
+      <div class="card-arrow">→</div>
+    </div>
+  </a>
+
+  <!-- 4 Programming — s2 -->
+  <a class="card s2" href="python_law_exam.html" data-delay="3">
+    <div class="card-line"></div>
+    <div class="card-top">
+      <div class="card-icon">⌨️</div>
+      <div class="badges"><span class="badge b-green">พร้อมสอบ</span></div>
+    </div>
+    <div class="mini-bar"><div class="mini-bar-fill" data-w="100"></div></div>
+    <div class="card-cat">Programming</div>
+    <div class="card-title">การเขียนโปรแกรมคอมพิวเตอร์</div>
+    <div class="card-desc">อัลกอริทึม โครงสร้างข้อมูล การพัฒนาและทดสอบซอฟต์แวร์</div>
+    <div class="card-foot">
+      <div class="card-meta">
+        <div class="meta-i"><div class="meta-v">100</div><div class="meta-k">ข้อ</div></div>
+        <div class="meta-i"><div class="meta-v">180</div><div class="meta-k">นาที</div></div>
+        <div class="meta-i"><div class="meta-v">60%</div><div class="meta-k">ผ่าน</div></div>
+      </div>
+      <div class="card-arrow">→</div>
+    </div>
+  </a>
+
+  <!-- 5 IT Law — s2 -->
+  <a class="card s2" href="cyber_law_exam.html" data-delay="4">
+    <div class="card-line"></div>
+    <div class="card-top">
+      <div class="card-icon">⚖️</div>
+      <div class="badges"><span class="badge b-green">พร้อมสอบ</span></div>
+    </div>
+    <div class="mini-bar"><div class="mini-bar-fill" data-w="100"></div></div>
+    <div class="card-cat">IT Law &amp; Regulation</div>
+    <div class="card-title">กฎหมายและระเบียบด้านเทคโนโลยีสารสนเทศ</div>
+    <div class="card-desc">พ.ร.บ.คอมพิวเตอร์ พ.ร.บ.ไซเบอร์ PDPA และระเบียบกองทัพเรือ</div>
+    <div class="card-foot">
+      <div class="card-meta">
+        <div class="meta-i"><div class="meta-v">100</div><div class="meta-k">ข้อ</div></div>
+        <div class="meta-i"><div class="meta-v">180</div><div class="meta-k">นาที</div></div>
+        <div class="meta-i"><div class="meta-v">60%</div><div class="meta-k">ผ่าน</div></div>
+      </div>
+      <div class="card-arrow">→</div>
+    </div>
+  </a>
+
+  <!-- 6 Networking — s3 soon -->
+  <a class="card s2" href="network_quiz_full.html" data-delay="5">
+    <div class="card-line"></div>
+    <div class="card-top">
+      <div class="card-icon">🌐</div>
+      <div class="badges"><span class="badge b-green">พร้อมสอบ</span></div>
+    </div>
+    <div class="mini-bar"><div class="mini-bar-fill" data-w="100"></div></div>
+    <div class="card-cat">Networking</div>
+    <div class="card-title">ระบบเครือข่ายและการสื่อสาร</div>
+    <div class="card-desc">TCP/IP, Network Topology, Routing &amp; Switching, Wireless และการแก้ปัญหาเครือข่าย</div>
+    <div class="card-foot">
+      <div class="card-meta">
+        <div class="meta-i"><div class="meta-v">325</div><div class="meta-k">ข้อ</div></div>
+        <div class="meta-i"><div class="meta-v">-</div><div class="meta-k">นาที</div></div>
+        <div class="meta-i"><div class="meta-v">60%</div><div class="meta-k">ผ่าน</div></div>
+      </div>
+      <div class="card-arrow">→</div>
+    </div>
+  </a>
+
+  <!-- 7 Database — s3 soon -->
+  <a class="card s2" href="database_quiz.html" data-delay="6">
+    <div class="card-line"></div>
+    <div class="card-top">
+      <div class="card-icon">🗄️</div>
+      <div class="badges"><span class="badge b-green">พร้อมสอบ</span></div>
+    </div>
+    <div class="mini-bar"><div class="mini-bar-fill" data-w="100"></div></div>
+    <div class="card-cat">Database</div>
+    <div class="card-title">ระบบฐานข้อมูล</div>
+    <div class="card-desc">การออกแบบฐานข้อมูล SQL การบริหารจัดการข้อมูล การสำรองและกู้คืน และหลักการ ACID</div>
+    <div class="card-foot">
+      <div class="card-meta">
+        <div class="meta-i"><div class="meta-v">100</div><div class="meta-k">ข้อ</div></div>
+        <div class="meta-i"><div class="meta-v">-</div><div class="meta-k">นาที</div></div>
+        <div class="meta-i"><div class="meta-v">60%</div><div class="meta-k">ผ่าน</div></div>
+      </div>
+      <div class="card-arrow">→</div>
+    </div>
+  </a>
+
+</section>
+
+<!-- ══════════ FOOTER ══════════ -->
+<footer>
+  <div>⚓ ระบบทดสอบออนไลน์ · กองทัพเรือไทย · Royal Thai Navy</div>
+  <div>สงวนลิขสิทธิ์ © พ.ศ. ๒๕๖๘</div>
+</footer>
+
+</div><!-- .page -->
+
+<!-- ════════════════════════════════════════════
+     SCRIPTS
+════════════════════════════════════════════ -->
+<script>
+/* ── Custom Cursor ── */
+const curDot  = document.getElementById('cur-dot');
+const curRing = document.getElementById('cur-ring');
+let mx = 0, my = 0, rx = 0, ry = 0;
+
+document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+
+(function curLoop() {
+  rx += (mx - rx) * .13;
+  ry += (my - ry) * .13;
+  curDot.style.cssText  = `left:${mx}px;top:${my}px`;
+  curRing.style.cssText = `left:${rx}px;top:${ry}px`;
+  requestAnimationFrame(curLoop);
+})();
+
+document.querySelectorAll('a,button,.tilt-card,.hero-cta').forEach(el => {
+  el.addEventListener('mouseenter', () => document.body.classList.add('hovering'));
+  el.addEventListener('mouseleave', () => document.body.classList.remove('hovering'));
+});
+
+/* ── Particle Canvas ── */
+const canvas = document.getElementById('bg-canvas');
+const ctx    = canvas.getContext('2d');
+let W, H, pts = [];
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+
+function spawnPts() {
+  pts = [];
+  const n = Math.min(Math.floor(W * H / 11000), 100);
+  for (let i = 0; i < n; i++) {
+    pts.push({
+      x: Math.random() * W, y: Math.random() * H,
+      vx: (Math.random() - .5) * .2,
+      vy: (Math.random() - .5) * .13,
+      r:  Math.random() * 1.4 + .3,
+      a:  Math.random() * .5 + .15
+    });
+  }
+}
+spawnPts();
+window.addEventListener('resize', () => { resize(); spawnPts(); });
+
+let pmx = -9999, pmy = -9999;
+document.addEventListener('mousemove', e => { pmx = e.clientX; pmy = e.clientY; });
+
+(function canvasLoop() {
+  ctx.clearRect(0, 0, W, H);
+
+  /* ambient mouse glow */
+  const g = ctx.createRadialGradient(pmx, pmy, 0, pmx, pmy, 220);
+  g.addColorStop(0, 'rgba(201,150,58,.05)');
+  g.addColorStop(1, 'transparent');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    /* gentle mouse attraction */
+    const dx = pmx - p.x, dy = pmy - p.y;
+    const dm = Math.hypot(dx, dy);
+    if (dm < 180) { p.x += dx * .0007; p.y += dy * .0007; }
+
+    for (let j = i + 1; j < pts.length; j++) {
+      const q  = pts[j];
+      const ex = p.x - q.x, ey = p.y - q.y;
+      const d  = Math.hypot(ex, ey);
+      if (d < 130) {
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
+        ctx.strokeStyle = `rgba(201,150,58,${.16*(1-d/130)})`;
+        ctx.lineWidth = .5; ctx.stroke();
+      }
+    }
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(201,150,58,${p.a})`;
+    ctx.fill();
+
+    p.x += p.vx; p.y += p.vy;
+    if (p.x < 0 || p.x > W) p.vx *= -1;
+    if (p.y < 0 || p.y > H) p.vy *= -1;
+  }
+  requestAnimationFrame(canvasLoop);
+})();
+
+/* ── Header shadow on scroll ── */
+window.addEventListener('scroll', () => {
+  document.getElementById('hdr').classList.toggle('scrolled', window.scrollY > 10);
+}, { passive: true });
+
+/* ── Hero 3D tilt ── */
+const tiltCard = document.getElementById('tiltCard');
+tiltCard.addEventListener('mousemove', e => {
+  const r  = tiltCard.getBoundingClientRect();
+  const xp = (e.clientX - r.left) / r.width;
+  const yp = (e.clientY - r.top)  / r.height;
+  tiltCard.style.transform =
+    `rotateX(${(yp - .5) * -13}deg) rotateY(${(xp - .5) * 13}deg) scale(1.02)`;
+  tiltCard.style.setProperty('--gx', (xp*100)+'%');
+  tiltCard.style.setProperty('--gy', (yp*100)+'%');
+});
+tiltCard.addEventListener('mouseleave', () => {
+  tiltCard.style.transform = 'rotateX(0) rotateY(0) scale(1)';
+});
+
+/* ── Hero panel bars + count-up ── */
+let heroFired = false;
+new IntersectionObserver(entries => {
+  if (!entries[0].isIntersecting || heroFired) return;
+  heroFired = true;
+  /* bars */
+  tiltCard.querySelectorAll('.tc-bar-fill').forEach(b => { b.style.width = b.dataset.w + '%'; });
+  /* count-up */
+  const el = document.getElementById('tcNum');
+  let v = 0;
+  const t = setInterval(() => { el.textContent = ++v; if (v >= 7) clearInterval(t); }, 75);
+}, { threshold: .3 }).observe(tiltCard);
+
+/* ── Stats count-up ── */
+new IntersectionObserver(entries => {
+  if (!entries[0].isIntersecting) return;
+  entries[0].target.querySelectorAll('.stat-v[data-target]').forEach(el => {
+    const target = +el.dataset.target;
+    let cur = 0;
+    const step = Math.ceil(target / 42);
+    const t = setInterval(() => {
+      cur = Math.min(cur + step, target);
+      el.textContent = cur;
+      if (cur >= target) { clearInterval(t); el.textContent = target; }
+    }, 28);
+  });
+  entries[0].target.querySelectorAll('.stat-v').forEach(el => delete el.dataset.target);
+}, { threshold: .5 }).observe(document.getElementById('statsWrap'));
+
+/* ── Scroll reveal cards ── */
+const revObs = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const delay = +(entry.target.dataset.delay || 0) * 70;
+    setTimeout(() => {
+      entry.target.classList.add('visible');
+      /* trigger mini progress bars */
+      entry.target.querySelectorAll('.mini-bar-fill').forEach(b => {
+        b.style.width = b.dataset.w + '%';
+      });
+    }, delay);
+    revObs.unobserve(entry.target);
+  });
+}, { threshold: .07 });
+document.querySelectorAll('.card').forEach(c => revObs.observe(c));
+
+/* ── Mouse glow on cards ── */
+document.querySelectorAll('.card:not(.soon)').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    const r = card.getBoundingClientRect();
+    card.style.setProperty('--mx', ((e.clientX-r.left)/r.width*100).toFixed(1)+'%');
+    card.style.setProperty('--my', ((e.clientY-r.top)/r.height*100).toFixed(1)+'%');
+  });
+});
+
+/* ── Ripple on click ── */
+document.querySelectorAll('.card:not(.soon)').forEach(card => {
+  card.addEventListener('click', e => {
+    const r    = card.getBoundingClientRect();
+    const el   = document.createElement('span');
+    el.className = 'ripple-el';
+    const sz = Math.max(r.width, r.height) * 1.6;
+    el.style.cssText = `width:${sz}px;height:${sz}px;left:${e.clientX-r.left-sz/2}px;top:${e.clientY-r.top-sz/2}px`;
+    card.appendChild(el);
+    setTimeout(() => el.remove(), 650);
+  });
+});
+
+/* ── Toast on first scroll ── */
+let toastDone = false;
+window.addEventListener('scroll', () => {
+  if (toastDone || window.scrollY < 180) return;
+  toastDone = true;
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3800);
+}, { passive: true });
+</script>
+</body>
+</html>
